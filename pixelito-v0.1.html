@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pixelito - Pixel Art Editor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Pixel+Operator&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+  <style>
+    :root {
+      --bg-light: #f0f0f0;
+      --bg-dark: #1e1e1e;
+      --fg-light: #1e1e1e;
+      --fg-dark: #f0f0f0;
+      --grid-color: #ccc;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Pixel Operator', monospace;
+      background-color: var(--bg-light);
+      color: var(--fg-light);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    .dark {
+      background-color: var(--bg-dark);
+      color: var(--fg-dark);
+    }
+
+    h1 {
+      margin-bottom: 10px;
+    }
+
+    #toolbar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    canvas {
+      image-rendering: pixelated;
+      background-color: white;
+      border: 1px solid var(--grid-color);
+    }
+
+    select, input[type="color"], button {
+      font-family: inherit;
+      font-size: 14px;
+      padding: 5px;
+      border: 1px solid #999;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Pixelito</h1>
+  <div id="toolbar">
+    <select id="resolution">
+      <option value="8">8x8</option>
+      <option value="16" selected>16x16</option>
+      <option value="32">32x32</option>
+      <option value="64">64x64</option>
+      <option value="128">128x128</option>
+    </select>
+    <input type="color" id="colorPicker" value="#000000">
+    <button id="eraserBtn"><span class="material-symbols-outlined">edit_off</span></button>
+    <button id="undoBtn"><span class="material-symbols-outlined">undo</span></button>
+    <button id="redoBtn"><span class="material-symbols-outlined">redo</span></button>
+    <button id="saveBtn"><span class="material-symbols-outlined">save</span></button>
+    <button id="themeToggle">Modo Oscuro</button>
+  </div>
+  <canvas id="canvas" width="320" height="320"></canvas>
+  <div id="position" style="margin-top: 10px; font-size: 14px;">Posición: - , -</div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const resolutionSelect = document.getElementById('resolution');
+    const colorPicker = document.getElementById('colorPicker');
+    const saveBtn = document.getElementById('saveBtn');
+    const themeToggle = document.getElementById('themeToggle');
+    const eraserBtn = document.getElementById('eraserBtn');
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
+
+    let gridSize = 16;
+    let pixelSize = canvas.width / gridSize;
+    let pixels = Array.from({ length: gridSize }, () => Array(gridSize).fill('#FFFFFF'));
+    let history = [];
+    let future = [];
+    let isErasing = false;
+
+    function pushHistory() {
+      history.push(JSON.stringify(pixels));
+      if (history.length > 100) history.shift();
+      future = [];
+    }
+
+    function drawGrid() {
+      pixelSize = canvas.width / gridSize;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let y = 0; y < gridSize; y++) {
+        for (let x = 0; x < gridSize; x++) {
+          ctx.fillStyle = pixels[y][x];
+          ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+        }
+      }
+      ctx.strokeStyle = '#ccc';
+      for (let i = 0; i <= gridSize; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * pixelSize, 0);
+        ctx.lineTo(i * pixelSize, canvas.height);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, i * pixelSize);
+        ctx.lineTo(canvas.width, i * pixelSize);
+        ctx.stroke();
+      }
+    }
+
+    canvas.addEventListener('click', e => {
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.floor((e.clientX - rect.left) / pixelSize);
+      const y = Math.floor((e.clientY - rect.top) / pixelSize);
+      pushHistory();
+      pixels[y][x] = isErasing ? '#FFFFFF' : colorPicker.value;
+      drawGrid();
+    });
+
+    canvas.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.floor((e.clientX - rect.left) / pixelSize);
+      const y = Math.floor((e.clientY - rect.top) / pixelSize);
+      const pos = document.getElementById('position');
+      if (x >= 0 && y >= 0 && x < gridSize && y < gridSize) {
+        pos.textContent = `Posición: ${x}, ${gridSize - 1 - y}`;
+        drawGrid();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x * pixelSize, 0);
+        ctx.lineTo(x * pixelSize, canvas.height);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, y * pixelSize);
+        ctx.lineTo(canvas.width, y * pixelSize);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#999';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x * pixelSize, 0);
+        ctx.lineTo(x * pixelSize, canvas.height);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, y * pixelSize);
+        ctx.lineTo(canvas.width, y * pixelSize);
+        ctx.stroke();
+      }
+    });
+
+    resolutionSelect.addEventListener('change', () => {
+      gridSize = parseInt(resolutionSelect.value);
+      pixels = Array.from({ length: gridSize }, () => Array(gridSize).fill('#FFFFFF'));
+      drawGrid();
+    });
+
+    saveBtn.addEventListener('click', () => {
+      const exportCanvas = document.createElement('canvas');
+      exportCanvas.width = gridSize;
+      exportCanvas.height = gridSize;
+      const exportCtx = exportCanvas.getContext('2d');
+      for (let y = 0; y < gridSize; y++) {
+        for (let x = 0; x < gridSize; x++) {
+          exportCtx.fillStyle = pixels[y][x];
+          exportCtx.fillRect(x, y, 1, 1);
+        }
+      }
+      const link = document.createElement('a');
+      link.download = 'pixelito.png';
+      link.href = exportCanvas.toDataURL();
+      link.click();
+    });
+
+    themeToggle.addEventListener('click', () => {
+      document.body.classList.toggle('dark');
+    });
+
+    eraserBtn.addEventListener('click', () => {
+      isErasing = !isErasing;
+      eraserBtn.classList.toggle('active');
+    });
+
+    undoBtn.addEventListener('click', () => {
+      if (history.length > 0) {
+        future.push(JSON.stringify(pixels));
+        pixels = JSON.parse(history.pop());
+        drawGrid();
+      }
+    });
+
+    redoBtn.addEventListener('click', () => {
+      if (future.length > 0) {
+        history.push(JSON.stringify(pixels));
+        pixels = JSON.parse(future.pop());
+        drawGrid();
+      }
+    });
+
+    drawGrid();
+  </script>
+</body>
+</html>
